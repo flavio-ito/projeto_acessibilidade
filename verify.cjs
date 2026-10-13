@@ -1,0 +1,32 @@
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const elements = {};
+for (const id of ['#app', '#details', '#dialog-content', '#toggle-view', '#close-dialog']) {
+  elements[id] = { innerHTML: '', textContent: '', classList: { toggle() {} }, events: {}, addEventListener(type, fn) { this.events[type] = fn; }, showModal() { this.open = true; }, close() { this.open = false; } };
+}
+const context = { document: { querySelector: id => elements[id] }, window: { scrollTo() {} }, FormData: class { get(key) { return key === 'origin' ? 'Avenida Central, 125' : 'Museu da Cidade'; } } };
+vm.createContext(context);
+vm.runInContext(fs.readFileSync('app.js', 'utf8'), context);
+const click = action => elements['#app'].events.click({ target: { closest: () => ({ dataset: { action } }) } });
+const contains = text => assert(elements['#app'].innerHTML.includes(text), text);
+contains('Para onde você vai?');
+elements['#app'].events.submit({ preventDefault() {}, target: {} });
+contains('Escolha sua rota');
+click('select-0');
+contains('O ônibus acumula 18 min de atraso');
+click('alternative');
+contains('Atraso na sua viagem');
+click('new-route');
+contains('ônibus 27');
+click('start');
+contains('O ônibus 32');
+click('location');
+contains('Falha de localização');
+click('retry');
+assert(elements['#details'].open);
+elements['#details'].events.click({ target: { closest: () => ({ dataset: { action: 'journey' } }) } });
+contains('ETAPA 1 DE 4');
+elements['#toggle-view'].events.click();
+assert.equal((elements['#app'].innerHTML.match(/<article/g) || []).length, 7);
+console.log('OK: sete telas e fluxo de navegação verificados.');
